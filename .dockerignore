@@ -1,0 +1,30 @@
+# Version Control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies
+.venv
+venv
+env
+
+# .env (Included in build as requested)
+
+
+# Data & Database
+lattes_data.db
+chroma_db/
+postgres_data/
+
+# Tests
+.pytest_cache
+tests/
+
+# Misc
+*.pdf
+*.log

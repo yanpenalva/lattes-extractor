@@ -8,17 +8,11 @@ MOCK_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <CURRICULO-VITAE>
   <DADOS-GERAIS NOME-COMPLETO="Maria Teste da Silva" />
 
-  <FORMACAO-ACADEMICA-TITULACAO>
-    <GRADUACAO FLAG-BOLSA="SIM" NOME-AGENCIA="PIBID - CAPES" ANO-DE-INICIO="2020" ANO-DE-CONCLUSAO="2022" />
-    <GRADUACAO FLAG-BOLSA="SIM" NOME-AGENCIA="Universidade Federal" ANO-DE-INICIO="2021" ANO-DE-CONCLUSAO="2023" />
-    <GRADUACAO FLAG-BOLSA="NAO" NOME-AGENCIA="" ANO-DE-INICIO="2019" ANO-DE-CONCLUSAO="2021" />
-  </FORMACAO-ACADEMICA-TITULACAO>
-
   <ATUACOES-PROFISSIONAIS>
     <ATUACAO-PROFISSIONAL>
       <VINCULOS
         OUTRO-VINCULO-INFORMADO="Voluntária"
-        OUTRO-ENQUADRAMENTO-FUNCIONAL-INFORMADO="Monitoria voluntária"
+        OUTRO-ENQUADRAMENTO-FUNCIONAL-INFORMADO="Voluntária do PET"
         OUTRAS-INFORMACOES=""
         ANO-INICIO="2021"
         MES-INICIO="1"
@@ -28,11 +22,38 @@ MOCK_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <VINCULOS
         OUTRO-VINCULO-INFORMADO="Bolsista"
         OUTRO-ENQUADRAMENTO-FUNCIONAL-INFORMADO="Extensionista"
-        OUTRAS-INFORMACOES="Bolsista do Programa Institucional de Bolsa de Extensão em 2023."
+        OUTRAS-INFORMACOES="Bolsista PIBEX/UEFS"
         ANO-INICIO="2023"
         MES-INICIO="3"
         ANO-FIM="2024"
         MES-FIM="3"
+      />
+      <VINCULOS
+        OUTRO-VINCULO-INFORMADO="Bolsista"
+        OUTRO-ENQUADRAMENTO-FUNCIONAL-INFORMADO="Bolsista PET"
+        OUTRAS-INFORMACOES=""
+        ANO-INICIO="2022"
+        MES-INICIO="1"
+        ANO-FIM="2023"
+        MES-FIM="2"
+      />
+      <VINCULOS
+        OUTRO-VINCULO-INFORMADO="Bolsista"
+        OUTRO-ENQUADRAMENTO-FUNCIONAL-INFORMADO="Monitoria departamental"
+        OUTRAS-INFORMACOES="Monitoria departamental"
+        ANO-INICIO="2023"
+        MES-INICIO="1"
+        ANO-FIM="2023"
+        MES-FIM="8"
+      />
+      <VINCULOS
+        OUTRO-VINCULO-INFORMADO="Bolsista"
+        OUTRO-ENQUADRAMENTO-FUNCIONAL-INFORMADO="Monitoria curta"
+        OUTRAS-INFORMACOES="Monitoria curta"
+        ANO-INICIO="2023"
+        MES-INICIO="1"
+        ANO-FIM="2023"
+        MES-FIM="6"
       />
     </ATUACAO-PROFISSIONAL>
   </ATUACOES-PROFISSIONAIS>
@@ -43,8 +64,15 @@ MOCK_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <ARTIGO-PUBLICADO><DADOS-BASICOS-DO-ARTIGO NATUREZA="COMPLETO" /></ARTIGO-PUBLICADO>
     </ARTIGOS-PUBLICADOS>
     <TRABALHOS-EM-EVENTOS>
-      <TRABALHO-EM-EVENTO><DADOS-BASICOS-DO-TRABALHO NATUREZA="COMPLETO" /></TRABALHO-EM-EVENTO>
-      <TRABALHO-EM-EVENTO><DADOS-BASICOS-DO-TRABALHO NATUREZA="RESUMO" /></TRABALHO-EM-EVENTO>
+      <TRABALHO-EM-EVENTOS>
+        <DADOS-BASICOS-DO-TRABALHO NATUREZA="COMPLETO" />
+      </TRABALHO-EM-EVENTOS>
+      <TRABALHO-EM-EVENTOS>
+        <DADOS-BASICOS-DO-TRABALHO NATUREZA="RESUMO" />
+      </TRABALHO-EM-EVENTOS>
+      <TRABALHO-EM-EVENTOS>
+        <DADOS-BASICOS-DO-TRABALHO NATUREZA="RESUMO_EXPANDIDO" />
+      </TRABALHO-EM-EVENTOS>
     </TRABALHOS-EM-EVENTOS>
     <LIVROS-E-CAPITULOS>
       <LIVROS-PUBLICADOS-OU-ORGANIZADOS>
@@ -98,9 +126,9 @@ def test_extension_other_scholarships(root):
     assert result["data"]["extension"]["other_scholarships_mentoring_ic"] == 1
 
 
-def test_extension_volunteer_months(root):
+def test_extension_volunteer_count(root):
     result = extract_student_summary(root, "9999999999")
-    assert result["data"]["extension"]["volunteer_months"] == 12
+    assert result["data"]["extension"]["volunteer_count"] == 1
 
 
 def test_bibliographic_complete_articles(root):

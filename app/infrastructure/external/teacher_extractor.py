@@ -1,6 +1,13 @@
 import xml.etree.ElementTree as ET
 from datetime import date
 
+_SUPERVISION_NATURE_MAP = {
+    "trabalho_de_conclusao_de_curso_graduacao": "undergraduate_thesis",
+    "monografia_de_conclusao_de_curso_aperfeicoamento_e_especializacao": "specialization_monograph",
+    "iniciacao_cientifica": "scientific_initiation",
+    "orientacao_de_outra_natureza": "other_supervision",
+}
+
 
 def _extract_titulation(root: ET.Element) -> dict:
     academic_formation_base_path = ".//FORMACAO-ACADEMICA-TITULACAO"
@@ -61,15 +68,23 @@ def _extract_extension(root: ET.Element, lattes_id: str) -> dict:
     }
 
 
+def _count_technical_works(root: ET.Element) -> int:
+    excluded = {"CONSULTORIA", "ASSESSORIA"}
+    return sum(
+        1 for el in root.findall(".//PRODUCAO-TECNICA/TRABALHO-TECNICO/DADOS-BASICOS-DO-TRABALHO-TECNICO")
+        if el.attrib.get("NATUREZA") not in excluded
+    )
+
+
 def _extract_scientific_production(root: ET.Element) -> dict:
     def count_elements(xml_path: str) -> int:
         return len(root.findall(xml_path))
 
-    def count_elements_by_nature(xml_path: str, nature_value: str, exclude: bool = False) -> int:
-        found_elements = root.findall(xml_path)
-        if exclude:
-            return sum(1 for element in found_elements if element.attrib.get("NATUREZA") != nature_value)
-        return sum(1 for element in found_elements if element.attrib.get("NATUREZA") == nature_value)
+    def count_elements_by_nature(xml_path: str, nature_value: str) -> int:
+        return sum(
+            1 for el in root.findall(xml_path)
+            if el.attrib.get("NATUREZA") == nature_value
+        )
 
     return {
         "bibliographic": {
@@ -78,12 +93,11 @@ def _extract_scientific_production(root: ET.Element) -> dict:
                 "COMPLETO",
             ),
             "conference_papers": count_elements_by_nature(
-                ".//PRODUCAO-BIBLIOGRAFICA/TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTO/DADOS-BASICOS-DO-TRABALHO",
-                "RESUMO",
-                exclude=True,
+                ".//TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTOS/DADOS-BASICOS-DO-TRABALHO",
+                "COMPLETO",
             ),
             "conference_abstracts": count_elements_by_nature(
-                ".//PRODUCAO-BIBLIOGRAFICA/TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTO/DADOS-BASICOS-DO-TRABALHO",
+                ".//TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTOS/DADOS-BASICOS-DO-TRABALHO",
                 "RESUMO",
             ),
             "books": count_elements(".//PRODUCAO-BIBLIOGRAFICA/LIVROS-E-CAPITULOS/LIVROS-PUBLICADOS-OU-ORGANIZADOS/LIVRO-PUBLICADO-OU-ORGANIZADO"),
@@ -94,7 +108,7 @@ def _extract_scientific_production(root: ET.Element) -> dict:
             "software": count_elements(".//PRODUCAO-TECNICA/SOFTWARE"),
             "products": count_elements(".//PRODUCAO-TECNICA/PRODUTO-TECNOLOGICO"),
             "processes_techniques": count_elements(".//PRODUCAO-TECNICA/PROCESSOS-OU-TECNICAS"),
-            "technical_works": count_elements(".//PRODUCAO-TECNICA/TRABALHO-TECNICO"),
+            "technical_works": _count_technical_works(root),
         },
         "patents": {
             "patents": count_elements(".//PRODUCAO-TECNICA/PATENTE"),
@@ -109,19 +123,28 @@ def _extract_scientific_production(root: ET.Element) -> dict:
 
 
 def _extract_human_resources(root: ET.Element) -> dict:
-    concluded_supervisions_base_path = ".//OUTRA-PRODUCAO/ORIENTACOES-CONCLUIDAS"
-    other_supervisions_path = f"{concluded_supervisions_base_path}/OUTRAS-ORIENTACOES-CONCLUIDAS/DADOS-BASICOS-DE-OUTRAS-ORIENTACOES-CONCLUIDAS"
+    base = root.find("OUTRA-PRODUCAO/ORIENTACOES-CONCLUIDAS")
+
+    if base is None:
+        return {
+            "doctorate_supervised": 0,
+            "masters_supervised": 0,
+            "postdoc_supervised": 0,
+            "others": {},
+        }
 
     other_supervisions_by_nature: dict[str, int] = {}
-    for supervision in root.findall(other_supervisions_path):
-        nature = supervision.attrib.get("NATUREZA", "OUTROS")
+    for supervision in base.findall("OUTRAS-ORIENTACOES-CONCLUIDAS/DADOS-BASICOS-DE-OUTRAS-ORIENTACOES-CONCLUIDAS"):
+        raw = supervision.attrib.get(
+            "NATUREZA", "outros").lower().replace("-", "_")
+        nature = _SUPERVISION_NATURE_MAP.get(raw, raw)
         other_supervisions_by_nature[nature] = other_supervisions_by_nature.get(
             nature, 0) + 1
 
     return {
-        "doctorate_supervised": len(root.findall(f"{concluded_supervisions_base_path}/ORIENTACAO-CONCLUIDA-PARA-DOUTORADO")),
-        "masters_supervised": len(root.findall(f"{concluded_supervisions_base_path}/ORIENTACAO-CONCLUIDA-PARA-MESTRADO")),
-        "postdoc_supervised": len(root.findall(f"{concluded_supervisions_base_path}/SUPERVISOES-CONCLUIDAS")),
+        "doctorate_supervised": len(base.findall("ORIENTACOES-CONCLUIDAS-PARA-DOUTORADO")),
+        "masters_supervised": len(base.findall("ORIENTACOES-CONCLUIDAS-PARA-MESTRADO")),
+        "postdoc_supervised": len(base.findall("SUPERVISOES-CONCLUIDAS")),
         "others": other_supervisions_by_nature,
     }
 

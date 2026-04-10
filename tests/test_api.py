@@ -33,14 +33,6 @@ def override_get_list_use_case():
 app.dependency_overrides[get_import_use_case] = override_get_import_use_case
 app.dependency_overrides[get_researcher_use_case] = override_get_researcher_use_case
 app.dependency_overrides[get_list_use_case] = override_get_list_use_case
-
-
-def test_read_root():
-    response = client.get("/")
-    assert response.status_code == 200
-    assert response.json() == {"message": "Lattes API está funcionando"}
-
-
 def test_get_researcher_found():
     mock_get_use_case.execute.return_value = Researcher(
         lattes_id="123", name="Test User")

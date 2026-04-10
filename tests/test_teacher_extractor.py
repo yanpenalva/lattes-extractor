@@ -4,6 +4,7 @@ from app.infrastructure.external.teacher_extractor import extract_teacher_summar
 
 LATTES_ID = "123"
 
+
 XML = """
 <CURRICULO-VITAE>
     <DADOS-GERAIS NOME-COMPLETO="João Silva" />
@@ -54,12 +55,15 @@ XML = """
             </ARTIGO-PUBLICADO>
         </ARTIGOS-PUBLICADOS>
         <TRABALHOS-EM-EVENTOS>
-            <TRABALHO-EM-EVENTO>
+            <TRABALHO-EM-EVENTOS>
                 <DADOS-BASICOS-DO-TRABALHO NATUREZA="COMPLETO" />
-            </TRABALHO-EM-EVENTO>
-            <TRABALHO-EM-EVENTO>
+            </TRABALHO-EM-EVENTOS>
+            <TRABALHO-EM-EVENTOS>
                 <DADOS-BASICOS-DO-TRABALHO NATUREZA="RESUMO" />
-            </TRABALHO-EM-EVENTO>
+            </TRABALHO-EM-EVENTOS>
+            <TRABALHO-EM-EVENTOS>
+                <DADOS-BASICOS-DO-TRABALHO NATUREZA="RESUMO_EXPANDIDO" />
+            </TRABALHO-EM-EVENTOS>
         </TRABALHOS-EM-EVENTOS>
         <LIVROS-E-CAPITULOS>
             <LIVROS-PUBLICADOS-OU-ORGANIZADOS>
@@ -79,7 +83,15 @@ XML = """
         <SOFTWARE />
         <PRODUTO-TECNOLOGICO />
         <PROCESSOS-OU-TECNICAS />
-        <TRABALHO-TECNICO />
+        <TRABALHO-TECNICO>
+            <DADOS-BASICOS-DO-TRABALHO-TECNICO NATUREZA="OUTRO" />
+        </TRABALHO-TECNICO>
+        <TRABALHO-TECNICO>
+            <DADOS-BASICOS-DO-TRABALHO-TECNICO NATUREZA="CONSULTORIA" />
+        </TRABALHO-TECNICO>
+        <TRABALHO-TECNICO>
+            <DADOS-BASICOS-DO-TRABALHO-TECNICO NATUREZA="ASSESSORIA" />
+        </TRABALHO-TECNICO>
         <PATENTE />
     </PRODUCAO-TECNICA>
     <OUTRA-PRODUCAO>
@@ -89,9 +101,9 @@ XML = """
             <MUSICA />
         </PRODUCAO-ARTISTICA-CULTURAL>
         <ORIENTACOES-CONCLUIDAS>
-            <ORIENTACAO-CONCLUIDA-PARA-DOUTORADO />
-            <ORIENTACAO-CONCLUIDA-PARA-MESTRADO />
-            <ORIENTACAO-CONCLUIDA-PARA-MESTRADO />
+            <ORIENTACOES-CONCLUIDAS-PARA-DOUTORADO />
+            <ORIENTACOES-CONCLUIDAS-PARA-MESTRADO />
+            <ORIENTACOES-CONCLUIDAS-PARA-MESTRADO />
             <SUPERVISOES-CONCLUIDAS />
             <OUTRAS-ORIENTACOES-CONCLUIDAS>
                 <DADOS-BASICOS-DE-OUTRAS-ORIENTACOES-CONCLUIDAS NATUREZA="INICIACAO_CIENTIFICA" />
@@ -177,5 +189,5 @@ def test_human_resources():
     assert hr["doctorate_supervised"] == 1
     assert hr["masters_supervised"] == 2
     assert hr["postdoc_supervised"] == 1
-    assert hr["others"]["INICIACAO_CIENTIFICA"] == 2
-    assert hr["others"]["TRABALHO_DE_CONCLUSAO_DE_CURSO_GRADUACAO"] == 1
+    assert hr["others"]["scientific_initiation"] == 2
+    assert hr["others"]["undergraduate_thesis"] == 1

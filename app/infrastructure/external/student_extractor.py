@@ -1,62 +1,69 @@
 import unicodedata
 import xml.etree.ElementTree as ET
+from datetime import date
+
+_SCHOLARSHIP_KEYWORDS = ("PIBEX", "PIBID", "PET", "RESIDENCIA")
+
+_PARTICIPATION_TAGS = [
+    "PARTICIPACAO-EM-CONGRESSO",
+    "PARTICIPACAO-EM-SEMINARIO",
+    "PARTICIPACAO-EM-ENCONTRO",
+    "PARTICIPACAO-EM-SIMPOSIO",
+    "PARTICIPACAO-EM-WORKSHOP",
+    "PARTICIPACAO-EM-OFICINA",
+    "PARTICIPACAO-EM-EXPOSICAO",
+    "PARTICIPACAO-EM-FEIRA",
+    "PARTICIPACAO-EM-FESTIVAL",
+    "OUTRA-PARTICIPACAO-EM-EVENTO-ARTISTICO-CULTURAL",
+    "OUTRAS-PARTICIPACOES-EM-EVENTOS-CONGRESSOS",
+]
+
+_MIN_DURATION_MONTHS = 6
 
 
 def _normalize(text: str) -> str:
     return unicodedata.normalize("NFD", text).encode("ascii", "ignore").decode("ascii").upper()
 
 
+def _calc_duration_months(vinculo: ET.Element) -> int:
+    current_year = date.today().year
+    current_month = date.today().month
+    try:
+        start_year = int(vinculo.attrib.get("ANO-INICIO", 0))
+        start_month = int(vinculo.attrib.get("MES-INICIO", 1) or 1)
+        end_year_raw = vinculo.attrib.get("ANO-FIM", "")
+        end_month_raw = vinculo.attrib.get("MES-FIM", "")
+        end_year = int(end_year_raw) if end_year_raw else current_year
+        end_month = int(end_month_raw) if end_month_raw else current_month
+        return (end_year - start_year) * 12 + (end_month - start_month) if start_year else 0
+    except (ValueError, TypeError):
+        return 0
+
+
 def _extract_extension(root: ET.Element) -> dict:
     scholarship_count = 0
     other_scholarships = 0
-    volunteer_months = 0
-
-    for formation in root.findall(".//FORMACAO-ACADEMICA-TITULACAO/*"):
-        if formation.attrib.get("FLAG-BOLSA") != "SIM":
-            continue
-        agency = _normalize(formation.attrib.get("NOME-AGENCIA", ""))
-        try:
-            start = int(formation.attrib.get("ANO-DE-INICIO", 0))
-            end = int(formation.attrib.get("ANO-DE-CONCLUSAO", 0))
-            duration = (end - start) * 12 if start and end else 0
-        except (ValueError, TypeError):
-            duration = 0
-
-        if any(k in agency for k in ("PIBEX", "PIBID", "PET", "RESIDENCIA")):
-            if duration > 6:
-                scholarship_count += 1
-        else:
-            other_scholarships += 1
+    volunteer_count = 0
 
     for vinculo in root.findall(".//VINCULOS"):
-        outro_vinculo = _normalize(
-            vinculo.attrib.get("OUTRO-VINCULO-INFORMADO", ""))
-        outras_info = _normalize(vinculo.attrib.get("OUTRAS-INFORMACOES", ""))
+        link_type = _normalize(vinculo.attrib.get(
+            "OUTRO-VINCULO-INFORMADO", ""))
+        extra_info = _normalize(vinculo.attrib.get("OUTRAS-INFORMACOES", ""))
+        functional = _normalize(vinculo.attrib.get(
+            "OUTRO-ENQUADRAMENTO-FUNCIONAL-INFORMADO", ""))
+        duration = _calc_duration_months(vinculo)
 
-        if "BOLSISTA" in outro_vinculo and any(k in outras_info for k in ("PIBEX", "PIBID", "PET", "RESIDENCIA")):
-            try:
-                start = int(vinculo.attrib.get("ANO-INICIO", 0))
-                start_m = int(vinculo.attrib.get("MES-INICIO", 1) or 1)
-                end = int(vinculo.attrib.get("ANO-FIM", 0))
-                end_m = int(vinculo.attrib.get("MES-FIM", 12) or 12)
-                duration = (end - start) * 12 + \
-                    (end_m - start_m) if start and end else 0
-            except (ValueError, TypeError):
-                duration = 0
-            if duration > 6:
+        if "BOLSISTA" in link_type:
+            if duration <= _MIN_DURATION_MONTHS:
+                continue
+            if any(k in extra_info or k in functional for k in _SCHOLARSHIP_KEYWORDS):
                 scholarship_count += 1
+            else:
+                other_scholarships += 1
             continue
 
-        if "VOLUNTARI" in outro_vinculo:
-            try:
-                start = int(vinculo.attrib.get("ANO-INICIO", 0))
-                start_m = int(vinculo.attrib.get("MES-INICIO", 1) or 1)
-                end = int(vinculo.attrib.get("ANO-FIM", 0))
-                end_m = int(vinculo.attrib.get("MES-FIM", 12) or 12)
-                if start and end:
-                    volunteer_months += (end - start) * 12 + (end_m - start_m)
-            except (ValueError, TypeError):
-                pass
+        if "VOLUNTARI" in link_type and duration > _MIN_DURATION_MONTHS:
+            volunteer_count += 1
 
     for ic in root.findall(".//OUTRAS-ORIENTACOES-CONCLUIDAS/DADOS-BASICOS-DE-OUTRAS-ORIENTACOES-CONCLUIDAS"):
         if ic.attrib.get("NATUREZA") == "INICIACAOCIENTIFICA" and ic.attrib.get("FLAG-BOLSA") == "SIM":
@@ -65,7 +72,7 @@ def _extract_extension(root: ET.Element) -> dict:
     return {
         "scholarship_pet_pibid_pibex_residencia": scholarship_count,
         "other_scholarships_mentoring_ic": other_scholarships,
-        "volunteer_months": volunteer_months,
+        "volunteer_count": volunteer_count,
     }
 
 
@@ -73,11 +80,11 @@ def _extract_scientific_production(root: ET.Element) -> dict:
     def count(path: str) -> int:
         return len(root.findall(path))
 
-    def count_by_nature(path: str, nature: str, negate: bool = False) -> int:
-        elements = root.findall(path)
-        if negate:
-            return sum(1 for el in elements if el.attrib.get("NATUREZA") != nature)
-        return sum(1 for el in elements if el.attrib.get("NATUREZA") == nature)
+    def count_by_nature(path: str, nature: str) -> int:
+        return sum(
+            1 for el in root.findall(path)
+            if el.attrib.get("NATUREZA") == nature
+        )
 
     return {
         "bibliographic": {
@@ -86,12 +93,11 @@ def _extract_scientific_production(root: ET.Element) -> dict:
                 "COMPLETO",
             ),
             "conference_papers": count_by_nature(
-                ".//PRODUCAO-BIBLIOGRAFICA/TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTO/DADOS-BASICOS-DO-TRABALHO",
-                "RESUMO",
-                negate=True,
+                ".//TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTOS/DADOS-BASICOS-DO-TRABALHO",
+                "COMPLETO",
             ),
             "conference_abstracts": count_by_nature(
-                ".//PRODUCAO-BIBLIOGRAFICA/TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTO/DADOS-BASICOS-DO-TRABALHO",
+                ".//TRABALHOS-EM-EVENTOS/TRABALHO-EM-EVENTOS/DADOS-BASICOS-DO-TRABALHO",
                 "RESUMO",
             ),
             "books": count(".//PRODUCAO-BIBLIOGRAFICA/LIVROS-E-CAPITULOS/LIVROS-PUBLICADOS-OU-ORGANIZADOS/LIVRO-PUBLICADO-OU-ORGANIZADO"),
@@ -101,29 +107,23 @@ def _extract_scientific_production(root: ET.Element) -> dict:
 
 
 def _extract_events(root: ET.Element) -> dict:
-    participation_tags = [
-        "PARTICIPACAO-EM-CONGRESSO",
-        "PARTICIPACAO-EM-SEMINARIO",
-        "PARTICIPACAO-EM-ENCONTRO",
-        "PARTICIPACAO-EM-SIMPOSIO",
-        "PARTICIPACAO-EM-WORKSHOP",
-        "PARTICIPACAO-EM-OFICINA",
-        "PARTICIPACAO-EM-EXPOSICAO",
-        "PARTICIPACAO-EM-FESTIVAL",
-        "OUTRA-PARTICIPACAO-EM-EVENTO-ARTISTICO-CULTURAL",
-        "OUTRAS-PARTICIPACOES-EM-EVENTOS-CONGRESSOS",
-    ]
-
     participation = sum(
-        len(root.findall(
-            f".//DADOS-COMPLEMENTARES/PARTICIPACAO-EM-EVENTOS-CONGRESSOS/{tag}"))
-        for tag in participation_tags
+        len(root.findall(f".//PARTICIPACAO-EM-EVENTOS-CONGRESSOS/{tag}"))
+        for tag in _PARTICIPATION_TAGS
     )
+
+    coordination = len(root.findall(
+        ".//PRODUCAO-TECNICA/DEMAIS-TIPOS-DE-PRODUCAO-TECNICA/ORGANIZACAO-DE-EVENTO"
+    ))
+
+    short_courses = len(root.findall(
+        ".//PRODUCAO-TECNICA/DEMAIS-TIPOS-DE-PRODUCAO-TECNICA/CURSO-DE-CURTA-DURACAO-MINISTRADO"
+    ))
 
     return {
         "event_participation": participation,
-        "event_coordination": len(root.findall(".//PRODUCAO-TECNICA/DEMAIS-TIPOS-DE-PRODUCAO-TECNICA/ORGANIZACAO-DE-EVENTO")),
-        "short_courses_taught": len(root.findall(".//PRODUCAO-TECNICA/DEMAIS-TIPOS-DE-PRODUCAO-TECNICA/CURSO-DE-CURTA-DURACAO-MINISTRADO")),
+        "event_coordination": coordination,
+        "short_courses_taught": short_courses,
     }
 
 
@@ -142,4 +142,3 @@ def extract_student_summary(root: ET.Element, lattes_id: str) -> dict:
             "events": _extract_events(root),
         },
     }
-    
